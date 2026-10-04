@@ -14,12 +14,10 @@ jobs:
       - name: Download Windows 11 ARM64 ISO to C Drive
         run: |
           Write-Host "Starting download to C drive..."
-          # 注意：请把下面的链接替换成你自己刚刚获取的微软官方直链
+          # ⚠️ 请务必替换成你刚刚获取的最新微软官方直链！
           Invoke-WebRequest -Uri "https://software.download.prss.microsoft.com/dbazure/Windows11_Client_arm64_zh-cn_26300_9457.iso?t=ad4b29f3-2fb9-4803-b2e9-fe67e77f7d21&P1=1791179844&P2=602&P3=2&P4=q1P2hUraswUt8byc06Ohjacg9m9NXvRskPedjjklqBtIz9FMJ8LHAGRXk3GhFUlX26KPvHXhvTio53HENi8%2fbOA6DaVZo1G%2bpg3VruDyUOdKv3A1zMYaYa1BVyqW5%2brcQCdLJXWEWTPjuhUL7GLDDlTeUfO9G4Ow%2baHYJA%2bDDLilAC8DvrL2m8NoTCraF0lKAt78Jxcab%2fb76OLU9FcYNohRbm7dxLG4yEiLMaWQNlJfD6ijlf9wDtZ0iP20V304PI6wNpkezZjMxAJJdMI6Ql2U7BARdpx6DU%2fogdbY0ez%2b%2bAO1IqQCYiwbUWhb54Dww29f5zNacW9%2fF%2bOz5q5%2fSg%3d%3d" -OutFile "C:\win11-arm64.iso" -UseBasicParsing
           $fileInfo = Get-Item "C:\win11-arm64.iso"
-          if ($fileInfo.Length -lt 1GB) {
-            Write-Error "ISO file seems too small, download might have failed."
-          }
+          if ($fileInfo.Length -lt 1GB) { Write-Error "ISO file seems too small." }
           Write-Host "Download complete. Size: $($fileInfo.Length / 1GB) GB"
 
       - name: Mount ISO, Extract Files, and Free Up Space
@@ -28,12 +26,10 @@ jobs:
           $driveLetter = ($mountResult | Get-Volume).DriveLetter
           Write-Host "ISO mounted at $driveLetter`:"
 
-          Write-Host "Copying necessary files to C:\tiny11 to save space..."
           New-Item -ItemType Directory -Force -Path "C:\tiny11\sources"
           New-Item -ItemType Directory -Force -Path "C:\tiny11\efi"
           New-Item -ItemType Directory -Force -Path "C:\tiny11\boot"
 
-          # 复制脚本运行所需的核心文件
           Copy-Item "$driveLetter`:\sources\boot.wim" "C:\tiny11\sources\boot.wim" -Force
           if (Test-Path "$driveLetter`:\sources\install.wim") {
             Copy-Item "$driveLetter`:\sources\install.wim" "C:\tiny11\sources\install.wim" -Force
@@ -44,16 +40,16 @@ jobs:
           Copy-Item "$driveLetter`:\efi" "C:\tiny11\efi" -Recurse -Force
           Copy-Item "$driveLetter`:\boot" "C:\tiny11\boot" -Recurse -Force
 
-          Write-Host "Dismounting ISO to release file lock..."
           Dismount-DiskImage -ImagePath "C:\win11-arm64.iso" | Out-Null
           Start-Sleep -Seconds 5
-          Write-Host "Deleting downloaded ISO to free up 8GB..."
           Remove-Item "C:\win11-arm64.iso" -Force
 
       - name: Run tiny11 Core Builder Script with SkipCopy
         run: |
-          # 直接把 ISODrive 指向我们解压好的目录，并开启 SkipCopy
-          .\tiny11AICoremaker.ps1 -ISODrive "C:\tiny11" -WorkDrive "C:" -OutputISO "C:\tiny11-arm64.iso" -SkipCopy -AssumeYes
+          # ⚠️ 绝杀：把映射和脚本运行写在同一个 run 块里，确保 X 盘在进程内可见
+          subst X: C:\tiny11
+          Start-Sleep -Seconds 3
+          .\tiny11AICoremaker.ps1 -ISODrive "X:" -WorkDrive "C:" -OutputISO "C:\tiny11-arm64.iso" -SkipCopy -AssumeYes
 
       - name: Upload ISO as Artifact
         uses: actions/upload-artifact@v4
